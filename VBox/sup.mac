@@ -1,10 +1,10 @@
-; $Id: sup.mac 28800 2010-04-27 08:22:32Z vboxsync $
+; $Id: sup.mac 41155 2012-05-03 23:33:24Z vboxsync $
 ;; @file
 ; SUP - Support Library, assembly definitions.
 ;
 
 ;
-; Copyright (C) 2006-2007 Oracle Corporation
+; Copyright (C) 2006-2012 Oracle Corporation
 ;
 ; This file is part of VirtualBox Open Source Edition (OSE), as
 ; available from http://www.virtualbox.org. This file is free software;
@@ -27,7 +27,6 @@
 %ifndef ___VBox_sup_mac
 %define ___VBox_sup_mac
 
-
 struc SUPGIPCPU
     .u32TransactionId           resd 1
     .u32UpdateIntervalTSC       resd 1
@@ -38,7 +37,11 @@ struc SUPGIPCPU
     .iTSCHistoryHead            resd 1
     .au32TSCHistory             resd 8
     .u32PrevUpdateIntervalNS    resd 1
-    .au32Reserved               resd 5
+    .au32Reserved               resd (5+5)
+    .enmState                   resd 1
+    .idCpu                      resd 1
+    .iCpuSet                    resw 1
+    .idApic                     resw 1
 endstruc
 
 %define SUPGLOBALINFOPAGE_MAGIC 0x19590106
@@ -46,12 +49,73 @@ struc SUPGLOBALINFOPAGE
     .u32Magic                   resd 1
     .u32Version                 resd 1
     .u32Mode                    resd 1
-    .u32Padding0                resd 1
+    .cCpus                      resw 1
+    .cPages                     resw 1
     .u32UpdateHz                resd 1
     .u32UpdateIntervalNS        resd 1
     .u64NanoTSLastUpdateHz      resq 1
-    .au32Padding1               resd 56
-    .aCPUs                      resb (SUPGIPCPU_size*32)
+    .OnlineCpuSet               resq 4
+    .PresentCpuSet              resq 4
+    .PossibleCpuSet             resq 4
+    .cOnlineCpus                resw 1
+    .cPresentCpus               resw 1
+    .cPossibleCpus              resw 1
+    .u16Padding0                resw 1
+    .idCpuMax                   resd 1
+    .au32Padding1               resd 29
+    .aiCpuFromApicId            resw 256
+    .aiCpuFromCpuSetIdx         resw 256
+    .aCPUs                      resb SUPGIPCPU_size
+endstruc
+
+struc SUPDRVTRACERUSRCTX32
+        .idProbe                resd 1
+        .cBits                  resb 1
+        .abReserved             resb 3
+        .u.X86.uVtgProbeLoc     resd 1
+        .u.X86.aArgs            resd 20
+        .u.X86.eip              resd 1
+        .u.X86.eflags           resd 1
+        .u.X86.eax              resd 1
+        .u.X86.ecx              resd 1
+        .u.X86.edx              resd 1
+        .u.X86.ebx              resd 1
+        .u.X86.esp              resd 1
+        .u.X86.ebp              resd 1
+        .u.X86.esi              resd 1
+        .u.X86.edi              resd 1
+        .u.X86.cs               resw 1
+        .u.X86.ss               resw 1
+        .u.X86.ds               resw 1
+        .u.X86.es               resw 1
+        .u.X86.fs               resw 1
+        .u.X86.gs               resw 1
+endstruc
+
+struc SUPDRVTRACERUSRCTX64
+        .idProbe                resd 1
+        .cBits                  resb 1
+        .abReserved             resb 3
+        .u.Amd64.uVtgProbeLoc   resq 1
+        .u.Amd64.aArgs          resq 10
+        .u.Amd64.rip            resq 1
+        .u.Amd64.rflags         resq 1
+        .u.Amd64.rax            resq 1
+        .u.Amd64.rcx            resq 1
+        .u.Amd64.rdx            resq 1
+        .u.Amd64.rbx            resq 1
+        .u.Amd64.rsp            resq 1
+        .u.Amd64.rbp            resq 1
+        .u.Amd64.rsi            resq 1
+        .u.Amd64.rdi            resq 1
+        .u.Amd64.r8             resq 1
+        .u.Amd64.r9             resq 1
+        .u.Amd64.r10            resq 1
+        .u.Amd64.r11            resq 1
+        .u.Amd64.r12            resq 1
+        .u.Amd64.r13            resq 1
+        .u.Amd64.r14            resq 1
+        .u.Amd64.r15            resq 1
 endstruc
 
 

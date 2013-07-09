@@ -1,11 +1,10 @@
-/* $Id: listeners.h 35724 2011-01-26 17:16:10Z vboxsync $ */
+/* $Id: listeners.h 45125 2013-03-21 14:09:06Z vboxsync $ */
 /** @file
- *
- * Listeners helpers.
+ * MS COM / XPCOM Abstraction Layer - Listeners helpers.
  */
 
 /*
- * Copyright (C) 2010 Oracle Corporation
+ * Copyright (C) 2010-2011 Oracle Corporation
  *
  * This file is part of VirtualBox Open Source Edition (OSE), as
  * available from http://www.virtualbox.org. This file is free software;
@@ -27,25 +26,27 @@
 
 #ifndef ___VBox_com_listeners_h
 #define ___VBox_com_listeners_h
+
 #include <VBox/com/com.h>
-#include <VBox/com/defs.h>
+#include <VBox/com/VirtualBox.h>
 
 #ifdef VBOX_WITH_XPCOM
-#define NS_IMPL_QUERY_HEAD_INLINE()                                   \
-NS_IMETHODIMP QueryInterface(REFNSIID aIID, void** aInstancePtr)      \
-{                                                                     \
-  NS_ASSERTION(aInstancePtr,                                          \
-               "QueryInterface requires a non-NULL destination!");    \
-  nsISupports* foundInterface;
-#define NS_INTERFACE_MAP_BEGIN_INLINE()      NS_IMPL_QUERY_HEAD_INLINE()
-#define NS_IMPL_QUERY_INTERFACE1_INLINE(_i1)                                 \
-  NS_INTERFACE_MAP_BEGIN_INLINE()                                            \
-    NS_INTERFACE_MAP_ENTRY(_i1)                                              \
-    NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, _i1)                       \
-  NS_INTERFACE_MAP_END
+# define NS_IMPL_QUERY_HEAD_INLINE() \
+NS_IMETHODIMP QueryInterface(REFNSIID aIID, void **aInstancePtr) \
+{ \
+    NS_ASSERTION(aInstancePtr, "QueryInterface requires a non-NULL destination!"); \
+    nsISupports *foundInterface;
+
+# define NS_INTERFACE_MAP_BEGIN_INLINE()      NS_IMPL_QUERY_HEAD_INLINE()
+
+# define NS_IMPL_QUERY_INTERFACE1_INLINE(a_i1) \
+    NS_INTERFACE_MAP_BEGIN_INLINE() \
+        NS_INTERFACE_MAP_ENTRY(a_i1) \
+        NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, a_i1) \
+    NS_INTERFACE_MAP_END
 #endif
 
-template <class T, class TParam = void* >
+template <class T, class TParam = void *>
 class ListenerImpl :
      public CComObjectRootEx<CComMultiThreadModel>,
      VBOX_SCRIPTABLE_IMPL(IEventListener)
@@ -162,9 +163,10 @@ public:
 };
 
 #ifdef VBOX_WITH_XPCOM
-#define VBOX_LISTENER_DECLARE(klazz) NS_DECL_CLASSINFO(klazz)
+# define VBOX_LISTENER_DECLARE(klazz) NS_DECL_CLASSINFO(klazz)
 #else
-#define VBOX_LISTENER_DECLARE(klazz)
+# define VBOX_LISTENER_DECLARE(klazz)
 #endif
 
 #endif
+

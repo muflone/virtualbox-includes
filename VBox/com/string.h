@@ -1,12 +1,10 @@
-/* $Id: string.h 35128 2010-12-15 12:38:41Z vboxsync $ */
-
+/* $Id: string.h 42570 2012-08-03 09:56:09Z vboxsync $ */
 /** @file
- * MS COM / XPCOM Abstraction Layer:
- * Smart string classes declaration
+ * MS COM / XPCOM Abstraction Layer - Smart string classes declaration.
  */
 
 /*
- * Copyright (C) 2006-2010 Oracle Corporation
+ * Copyright (C) 2006-2012 Oracle Corporation
  *
  * This file is part of VirtualBox Open Source Edition (OSE), as
  * available from http://www.virtualbox.org. This file is free software;
@@ -57,36 +55,40 @@ extern const BSTR g_bstrEmpty;
 
 /**
  *  String class used universally in Main for COM-style Utf-16 strings.
- *  Unfortunately COM on Windows uses UTF-16 everywhere, requiring conversions
- *  back and forth since most of VirtualBox and our libraries use UTF-8.
  *
- *  To make things more obscure, on Windows, a COM-style BSTR is not just a
- *  pointer to a null-terminated wide character array, but the four bytes
- *  (32 bits) BEFORE the memory that the pointer points to are a length
- *  DWORD. One must therefore avoid pointer arithmetic and always use
- *  SysAllocString and the like to deal with BSTR pointers, which manage
- *  that DWORD correctly.
+ * Unfortunately COM on Windows uses UTF-16 everywhere, requiring conversions
+ * back and forth since most of VirtualBox and our libraries use UTF-8.
  *
- *  For platforms other than Windows, we provide our own versions of the
- *  Sys* functions in Main/xpcom/helpers.cpp which do NOT use length
- *  prefixes though to be compatible with how XPCOM allocates string
- *  parameters to public functions.
+ * To make things more obscure, on Windows, a COM-style BSTR is not just a
+ * pointer to a null-terminated wide character array, but the four bytes (32
+ * bits) BEFORE the memory that the pointer points to are a length DWORD. One
+ * must therefore avoid pointer arithmetic and always use SysAllocString and
+ * the like to deal with BSTR pointers, which manage that DWORD correctly.
  *
- *  The Bstr class hides all this handling behind a std::string-like interface
- *  and also provides automatic conversions to MiniString and Utf8Str instances.
+ * For platforms other than Windows, we provide our own versions of the Sys*
+ * functions in Main/xpcom/helpers.cpp which do NOT use length prefixes though
+ * to be compatible with how XPCOM allocates string parameters to public
+ * functions.
  *
- *  The one advantage of using the SysString* routines is that this makes it
- *  possible to use it as a type of member variables of COM/XPCOM components
- *  and pass their values to callers through component methods' output parameters
- *  using the #cloneTo() operation. Also, the class can adopt (take ownership of)
- *  string buffers returned in output parameters of COM methods using the
- *  #asOutParam() operation and correctly free them afterwards.
+ * The Bstr class hides all this handling behind a std::string-like interface
+ * and also provides automatic conversions to RTCString and Utf8Str instances.
  *
- *  Starting with VirtualBox 3.2, like Utf8Str, Bstr no longer differentiates
- *  between NULL strings and empty strings. In other words, Bstr("") and
- *  Bstr(NULL) behave the same. In both cases, Bstr allocates no memory,
- *  reports a zero length and zero allocated bytes for both, and returns an
- *  empty C wide string from raw().
+ * The one advantage of using the SysString* routines is that this makes it
+ * possible to use it as a type of member variables of COM/XPCOM components and
+ * pass their values to callers through component methods' output parameters
+ * using the #cloneTo() operation.  Also, the class can adopt (take ownership
+ * of) string buffers returned in output parameters of COM methods using the
+ * #asOutParam() operation and correctly free them afterwards.
+ *
+ * Starting with VirtualBox 3.2, like Utf8Str, Bstr no longer differentiates
+ * between NULL strings and empty strings. In other words, Bstr("") and
+ * Bstr(NULL) behave the same. In both cases, Bstr allocates no memory,
+ * reports a zero length and zero allocated bytes for both, and returns an
+ * empty C wide string from raw().
+ *
+ * @note    All Bstr methods ASSUMES valid UTF-16 or UTF-8 input strings.
+ *          The VirtualBox policy in this regard is to validate strings coming
+ *          from external sources before passing them to Bstr or Utf8Str.
  */
 class Bstr
 {
@@ -114,7 +116,7 @@ public:
     }
 #endif
 
-    Bstr(const iprt::MiniString &that)
+    Bstr(const RTCString &that)
     {
         copyFrom(that.c_str());
     }
@@ -163,7 +165,13 @@ public:
         return *this;
     }
 
+#ifdef _MSC_VER
+# if _MSC_VER >= 1400
     RTMEMEF_NEW_AND_DELETE_OPERATORS();
+# endif
+#else
+    RTMEMEF_NEW_AND_DELETE_OPERATORS();
+#endif
 
     /** Case sensitivity selector. */
     enum CaseSensitivity
@@ -277,6 +285,8 @@ public:
      *
      *  If the member string is empty, this allocates an empty BSTR in *pstr
      *  (i.e. makes it point to a new buffer with a null byte).
+     *
+     *  @deprecated Use cloneToEx instead to avoid throwing exceptions.
      */
     void cloneTo(BSTR *pstr) const
     {
@@ -291,6 +301,19 @@ public:
     }
 
     /**
+     *  A version of cloneTo that does not throw any out of memory exceptions, but
+     *  returns E_OUTOFMEMORY intead.
+     *  @returns S_OK or E_OUTOFMEMORY.
+     */
+    HRESULT cloneToEx(BSTR *pstr) const
+    {
+        if (!pstr)
+            return S_OK;
+        *pstr = ::SysAllocString((const OLECHAR *)raw());       // raw() returns a pointer to "" if empty
+        return pstr ? S_OK : E_OUTOFMEMORY;
+    }
+
+    /**
      *  Intended to assign instances to |BSTR| out parameters from within the
      *  interface method. Transfers the ownership of the original string to the
      *  caller and resets the instance to null.
@@ -300,28 +323,58 @@ public:
      *
      *  If the member string is empty, this allocates an empty BSTR in *pstr
      *  (i.e. makes it point to a new buffer with a null byte).
+     *
+     * @param   pbstrDst        The BSTR variable to detach the string to.
+     *
+     * @throws  std::bad_alloc if we failed to allocate a new empty string.
      */
-    void detachTo(BSTR *pstr)
+    void detachTo(BSTR *pbstrDst)
     {
         if (m_bstr)
-            *pstr = m_bstr;
+        {
+            *pbstrDst = m_bstr;
+            m_bstr = NULL;
+        }
         else
         {
             // allocate null BSTR
-            *pstr = ::SysAllocString((const OLECHAR *)g_bstrEmpty);
+            *pbstrDst = ::SysAllocString((const OLECHAR *)g_bstrEmpty);
 #ifdef RT_EXCEPTIONS_ENABLED
-            if (!*pstr)
+            if (!*pbstrDst)
                 throw std::bad_alloc();
 #endif
         }
-        m_bstr = NULL;
+    }
+
+    /**
+     *  A version of detachTo that does not throw exceptions on out-of-memory
+     *  conditions, but instead returns E_OUTOFMEMORY.
+     *
+     * @param   pbstrDst        The BSTR variable to detach the string to.
+     * @returns S_OK or E_OUTOFMEMORY.
+     */
+    HRESULT detachToEx(BSTR *pbstrDst)
+    {
+        if (m_bstr)
+        {
+            *pbstrDst = m_bstr;
+            m_bstr = NULL;
+        }
+        else
+        {
+            // allocate null BSTR
+            *pbstrDst = ::SysAllocString((const OLECHAR *)g_bstrEmpty);
+            if (!*pbstrDst)
+                return E_OUTOFMEMORY;
+        }
+        return S_OK;
     }
 
     /**
      *  Intended to pass instances as |BSTR| out parameters to methods.
      *  Takes the ownership of the returned data.
      */
-    BSTR* asOutParam()
+    BSTR *asOutParam()
     {
         cleanup();
         return &m_bstr;
@@ -351,13 +404,17 @@ protected:
      * be a BSTR, i.e. need not have a length prefix).
      *
      * If the source is empty, this sets the member string to NULL.
-     * @param rs
+     *
+     * @param   a_bstrSrc           The source string.  The caller guarantees
+     *                              that this is valid UTF-16.
+     *
+     * @throws  std::bad_alloc - the object is representing an empty string.
      */
-    void copyFrom(const OLECHAR *rs)
+    void copyFrom(const OLECHAR *a_bstrSrc)
     {
-        if (rs && *rs)
+        if (a_bstrSrc && *a_bstrSrc)
         {
-            m_bstr = ::SysAllocString(rs);
+            m_bstr = ::SysAllocString(a_bstrSrc);
 #ifdef RT_EXCEPTIONS_ENABLED
             if (!m_bstr)
                 throw std::bad_alloc();
@@ -374,33 +431,27 @@ protected:
      * This variant copies and converts from a zero-terminated UTF-8 string.
      *
      * If the source is empty, this sets the member string to NULL.
-     * @param rs
+     *
+     * @param   a_pszSrc            The source string.  The caller guarantees
+     *                              that this is valid UTF-8.
+     *
+     * @throws  std::bad_alloc - the object is representing an empty string.
      */
-    void copyFrom(const char *rs)
+    void copyFrom(const char *a_pszSrc)
     {
-        if (rs && *rs)
-        {
-            PRTUTF16 s = NULL;
-            ::RTStrToUtf16(rs, &s);
-#ifdef RT_EXCEPTIONS_ENABLED
-            if (!s)
-                throw std::bad_alloc();
-#endif
-            copyFrom((const OLECHAR *)s);            // allocates BSTR from zero-terminated input string
-            ::RTUtf16Free(s);
-        }
-        else
-            m_bstr = NULL;
+        copyFromN(a_pszSrc, RTSTR_MAX);
     }
 
     /**
      * Variant of copyFrom for sub-string constructors.
      *
-     * @param   a_pszSrc            The source string.
+     * @param   a_pszSrc            The source string.  The caller guarantees
+     *                              that this is valid UTF-8.
      * @param   a_cchMax            The maximum number of chars (not
      *                              codepoints) to copy.  If you pass RTSTR_MAX
      *                              it'll be exactly like copyFrom().
-     * @throws  std::bad_alloc
+     *
+     * @throws  std::bad_alloc - the object is representing an empty string.
      */
     void copyFromN(const char *a_pszSrc, size_t a_cchSrc);
 
@@ -416,33 +467,37 @@ inline bool operator==(BSTR l, const Bstr &r) { return r.operator==(l); }
 inline bool operator!=(BSTR l, const Bstr &r) { return r.operator!=(l); }
 
 
-////////////////////////////////////////////////////////////////////////////////
+
 
 /**
- *  String class used universally in Main for UTF-8 strings.
+ * String class used universally in Main for UTF-8 strings.
  *
- *  This is based on iprt::MiniString, to which some functionality has been
- *  moved. Here we keep things that are specific to Main, such as conversions
- *  with UTF-16 strings (Bstr).
+ * This is based on RTCString, to which some functionality has been
+ * moved.  Here we keep things that are specific to Main, such as conversions
+ * with UTF-16 strings (Bstr).
  *
- *  Like iprt::MiniString, Utf8Str does not differentiate between NULL strings
- *  and empty strings. In other words, Utf8Str("") and Utf8Str(NULL)
- *  behave the same. In both cases, MiniString allocates no memory, reports
- *  a zero length and zero allocated bytes for both, and returns an empty
- *  C string from c_str().
+ * Like RTCString, Utf8Str does not differentiate between NULL strings
+ * and empty strings.  In other words, Utf8Str("") and Utf8Str(NULL) behave the
+ * same.  In both cases, RTCString allocates no memory, reports
+ * a zero length and zero allocated bytes for both, and returns an empty
+ * C string from c_str().
+ *
+ * @note    All Utf8Str methods ASSUMES valid UTF-8 or UTF-16 input strings.
+ *          The VirtualBox policy in this regard is to validate strings coming
+ *          from external sources before passing them to Utf8Str or Bstr.
  */
-class Utf8Str : public iprt::MiniString
+class Utf8Str : public RTCString
 {
 public:
 
     Utf8Str() {}
 
-    Utf8Str(const MiniString &that)
-        : MiniString(that)
+    Utf8Str(const RTCString &that)
+        : RTCString(that)
     {}
 
     Utf8Str(const char *that)
-        : MiniString(that)
+        : RTCString(that)
     {}
 
     Utf8Str(const Bstr &that)
@@ -455,6 +510,11 @@ public:
         copyFrom(that);
     }
 
+    Utf8Str(const char *a_pszSrc, size_t a_cchSrc)
+        : RTCString(a_pszSrc, a_cchSrc)
+    {
+    }
+
     /**
      * Constructs a new string given the format string and the list of the
      * arguments for the format string.
@@ -463,22 +523,22 @@ public:
      *                          @see pg_rt_str_format.
      * @param   a_va            Argument vector containing the arguments
      *                          specified by the format string.
-     * @sa      iprt::MiniString::printfV
+     * @sa      RTCString::printfV
      */
     Utf8Str(const char *a_pszFormat, va_list a_va)
-        : MiniString(a_pszFormat, a_va)
+        : RTCString(a_pszFormat, a_va)
     {
     }
 
-    Utf8Str& operator=(const MiniString &that)
+    Utf8Str& operator=(const RTCString &that)
     {
-        MiniString::operator=(that);
+        RTCString::operator=(that);
         return *this;
     }
 
     Utf8Str& operator=(const char *that)
     {
-        MiniString::operator=(that);
+        RTCString::operator=(that);
         return *this;
     }
 
@@ -496,6 +556,64 @@ public:
         return *this;
     }
 
+    bool operator<(const RTCString &that) const { return RTCString::operator<(that); }
+
+    /**
+     * Extended assignment method that returns a COM status code instead of an
+     * exception on failure.
+     *
+     * @returns S_OK or E_OUTOFMEMORY.
+     * @param   a_rSrcStr   The source string
+     */
+    HRESULT assignEx(Utf8Str const &a_rSrcStr)
+    {
+        return copyFromExNComRC(a_rSrcStr.m_psz, a_rSrcStr.m_cch);
+    }
+
+    /**
+     * Extended assignment method that returns a COM status code instead of an
+     * exception on failure.
+     *
+     * @returns S_OK, E_OUTOFMEMORY or E_INVALIDARG.
+     * @param   a_pcszSrc   The source string
+     * @param   a_offSrc    The character (byte) offset of the substring.
+     * @param   a_cchSrc    The number of characters (bytes) to copy from the source
+     *                      string.
+     */
+    HRESULT assignEx(Utf8Str const &a_rSrcStr, size_t a_offSrc, size_t a_cchSrc)
+    {
+        if (   a_offSrc + a_cchSrc > a_rSrcStr.m_cch
+            || a_offSrc > a_rSrcStr.m_cch)
+            return E_INVALIDARG;
+        return copyFromExNComRC(a_rSrcStr.m_psz, a_rSrcStr.m_cch);
+    }
+
+    /**
+     * Extended assignment method that returns a COM status code instead of an
+     * exception on failure.
+     *
+     * @returns S_OK or E_OUTOFMEMORY.
+     * @param   a_pcszSrc   The source string
+     */
+    HRESULT assignEx(const char *a_pcszSrc)
+    {
+        return copyFromExNComRC(a_pcszSrc, a_pcszSrc ? strlen(a_pcszSrc) : 0);
+    }
+
+    /**
+     * Extended assignment method that returns a COM status code instead of an
+     * exception on failure.
+     *
+     * @returns S_OK or E_OUTOFMEMORY.
+     * @param   a_pcszSrc   The source string
+     * @param   a_cchSrc    The number of characters (bytes) to copy from the source
+     *                      string.
+     */
+    HRESULT assignEx(const char *a_pcszSrc, size_t a_cchSrc)
+    {
+        return copyFromExNComRC(a_pcszSrc, a_cchSrc);
+    }
+
     RTMEMEF_NEW_AND_DELETE_OPERATORS();
 
 #if defined(VBOX_WITH_XPCOM)
@@ -510,6 +628,13 @@ public:
      * like char* strings anyway.
      */
     void cloneTo(char **pstr) const;
+
+    /**
+     * A version of cloneTo that does not throw allocation errors but returns
+     * E_OUTOFMEMORY instead.
+     * @returns S_OK or E_OUTOFMEMORY (COM status codes).
+     */
+    HRESULT cloneToEx(char **pstr) const;
 #endif
 
     /**
@@ -524,6 +649,33 @@ public:
             Bstr bstr(*this);
             bstr.cloneTo(pstr);
         }
+    }
+
+    /**
+     * A version of cloneTo that does not throw allocation errors but returns
+     * E_OUTOFMEMORY instead.
+     *
+     * @param   pbstr Where to store a clone of the string.
+     * @returns S_OK or E_OUTOFMEMORY (COM status codes).
+     */
+    HRESULT cloneToEx(BSTR *pbstr) const
+    {
+        if (!pbstr)
+            return S_OK;
+        Bstr bstr(*this);
+        return bstr.detachToEx(pbstr);
+    }
+
+    /**
+     * Safe assignment from BSTR.
+     *
+     * @param   pbstrSrc    The source string.
+     * @returns S_OK or E_OUTOFMEMORY (COM status codes).
+     */
+    HRESULT cloneEx(CBSTR pbstrSrc)
+    {
+        cleanup();
+        return copyFromEx(pbstrSrc);
     }
 
     /**
@@ -554,16 +706,17 @@ public:
      *  Static immutable empty-string object. May be used for comparison purposes.
      */
     static const Utf8Str Empty;
-
 protected:
 
-    void copyFrom(CBSTR s);
+    void copyFrom(CBSTR a_pbstr);
+    HRESULT copyFromEx(CBSTR a_pbstr);
+    HRESULT copyFromExNComRC(const char *a_pcszSrc, size_t a_cchSrc);
 
     friend class Bstr; /* to access our raw_copy() */
 };
 
 /**
- * Class with iprt::MiniString::printf as constructor for your convenience.
+ * Class with RTCString::printf as constructor for your convenience.
  *
  * Constructing a Utf8Str string object from a format string and a variable
  * number of arguments can easily be confused with the other Utf8Str

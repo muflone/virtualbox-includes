@@ -1,10 +1,10 @@
-/* $Id: gvm.h 35361 2010-12-28 08:38:42Z vboxsync $ */
+/* $Id: gvm.h 44528 2013-02-04 14:27:54Z vboxsync $ */
 /** @file
  * GVM - The Global VM Data.
  */
 
 /*
- * Copyright (C) 2007-2010 Oracle Corporation
+ * Copyright (C) 2007-2011 Oracle Corporation
  *
  * This file is part of VirtualBox Open Source Edition (OSE), as
  * available from http://www.virtualbox.org. This file is free software;
@@ -99,8 +99,18 @@ typedef struct GVM
 #ifdef ___GMMR0Internal_h
         struct GMMPERVM     s;
 #endif
-        uint8_t             padding[256];
+        uint8_t             padding[512];
     } gmm;
+
+    /** The RAWPCIVM per vm data. */
+    union
+    {
+#ifdef ___VBox_rawpci_h
+        struct RAWPCIPERVM s;
+#endif
+        uint8_t     padding[64];
+    } rawpci;
+
 
     /** GVMCPU array for the configured number of virtual CPUs. */
     GVMCPU          aCpus[1];

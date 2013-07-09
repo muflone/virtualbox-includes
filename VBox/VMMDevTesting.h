@@ -1,10 +1,10 @@
-/* $Id: VMMDevTesting.h 31665 2010-08-13 15:54:23Z vboxsync $ */
+/* $Id: VMMDevTesting.h 42585 2012-08-03 16:50:05Z vboxsync $ */
 /** @file
  * VMMDev - Testing Extensions.
  */
 
 /*
- * Copyright (C) 2010 Oracle Corporation
+ * Copyright (C) 2010-2012 Oracle Corporation
  *
  * This file is part of VirtualBox Open Source Edition (OSE), as
  * available from http://www.virtualbox.org. This file is free software;
@@ -76,6 +76,11 @@
 /** Report a value, sending the 64-bit value (2x4), the 32-bit unit (4), and
  * finally the name (zero terminated string).  (RTTestValue) */
 #define VMMDEV_TESTING_CMD_VALUE        UINT32_C(0xcab1e005)
+/** Report a failure, sending reason (zero terminated string). (RTTestSkipped) */
+#define VMMDEV_TESTING_CMD_SKIPPED      UINT32_C(0xcab1e006)
+/** Report a value found in a VMM register, sending a string on the form
+ * "value-name:register-name". */
+#define VMMDEV_TESTING_CMD_VALUE_REG    UINT32_C(0xcab1e007)
 /** @} */
 
 /** @name Value units
@@ -106,6 +111,7 @@
 #define VMMDEV_TESTING_UNIT_NS_PER_ROUND_TRIP   UINT8_C(0x18)   /**< Nanoseconds per round trip. */
 #define VMMDEV_TESTING_UNIT_INSTRS              UINT8_C(0x19)   /**< Instructions. */
 #define VMMDEV_TESTING_UNIT_INSTRS_PER_SEC      UINT8_C(0x1a)   /**< Instructions per second. */
+#define VMMDEV_TESTING_UNIT_NONE                UINT8_C(0x1b)   /**< No unit. */
 /** @}  */
 
 
