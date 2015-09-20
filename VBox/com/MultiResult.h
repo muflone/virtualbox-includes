@@ -1,10 +1,10 @@
-/* $Id: MultiResult.h 45125 2013-03-21 14:09:06Z vboxsync $ */
+/* $Id: MultiResult.h 56291 2015-06-09 14:12:00Z vboxsync $ */
 /** @file
  * MS COM / XPCOM Abstraction Layer - MultiResult class declarations.
  */
 
 /*
- * Copyright (C) 2008-2012 Oracle Corporation
+ * Copyright (C) 2008-2015 Oracle Corporation
  *
  * This file is part of VirtualBox Open Source Edition (OSE), as
  * available from http://www.virtualbox.org. This file is free software;

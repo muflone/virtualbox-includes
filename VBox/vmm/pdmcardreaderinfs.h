@@ -1,10 +1,10 @@
-/* $Id: pdmcardreaderinfs.h 45033 2013-03-13 23:45:23Z vboxsync $ */
+/* $Id: pdmcardreaderinfs.h 56291 2015-06-09 14:12:00Z vboxsync $ */
 /** @file
  * cardreaderinfs - interface between Usb Card Reader device and its driver.
  */
 
 /*
- * Copyright (C) 2011-2012 Oracle Corporation
+ * Copyright (C) 2011-2015 Oracle Corporation
  *
  * This file is part of VirtualBox Open Source Edition (OSE), as
  * available from http://www.virtualbox.org. This file is free software;

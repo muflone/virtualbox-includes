@@ -1,10 +1,10 @@
-/* $Id: string.h 42570 2012-08-03 09:56:09Z vboxsync $ */
+/* $Id: string.h 57005 2015-07-19 01:03:20Z vboxsync $ */
 /** @file
  * MS COM / XPCOM Abstraction Layer - Smart string classes declaration.
  */
 
 /*
- * Copyright (C) 2006-2012 Oracle Corporation
+ * Copyright (C) 2006-2015 Oracle Corporation
  *
  * This file is part of VirtualBox Open Source Edition (OSE), as
  * available from http://www.virtualbox.org. This file is free software;
@@ -204,15 +204,23 @@ public:
     }
 
     bool operator==(const Bstr &that) const { return !compare(that.m_bstr); }
+    bool operator==(CBSTR that) const       { return !compare(that); }
+    bool operator==(BSTR that) const        { return !compare(that); }
     bool operator!=(const Bstr &that) const { return !!compare(that.m_bstr); }
-    bool operator==(CBSTR that) const { return !compare(that); }
-    bool operator==(BSTR that) const { return !compare(that); }
-
-    bool operator!=(CBSTR that) const { return !!compare(that); }
-    bool operator!=(BSTR that) const { return !!compare(that); }
-    bool operator<(const Bstr &that) const { return compare(that.m_bstr) < 0; }
-    bool operator<(CBSTR that) const { return compare(that) < 0; }
-    bool operator<(BSTR that) const { return compare(that) < 0; }
+    bool operator!=(CBSTR that) const       { return !!compare(that); }
+    bool operator!=(BSTR that) const        { return !!compare(that); }
+    bool operator<(const Bstr &that) const  { return compare(that.m_bstr) <  0; }
+    bool operator<(CBSTR that) const        { return compare(that)        <  0; }
+    bool operator<(BSTR that) const         { return compare(that)        <  0; }
+    bool operator<=(const Bstr &that) const { return compare(that.m_bstr) <= 0; }
+    bool operator<=(CBSTR that) const       { return compare(that)        <= 0; }
+    bool operator<=(BSTR that) const        { return compare(that)        <= 0; }
+    bool operator>(const Bstr &that) const  { return compare(that.m_bstr) >  0; }
+    bool operator>(CBSTR that) const        { return compare(that)        >  0; }
+    bool operator>(BSTR that) const         { return compare(that)        >  0; }
+    bool operator>=(const Bstr &that) const { return compare(that.m_bstr) >= 0; }
+    bool operator>=(CBSTR that) const       { return compare(that)        >= 0; }
+    bool operator>=(BSTR that) const        { return compare(that)        >= 0; }
 
     /**
      * Returns true if the member string has no length.
@@ -505,9 +513,9 @@ public:
         copyFrom(that.raw());
     }
 
-    Utf8Str(CBSTR that)
+    Utf8Str(CBSTR that, size_t a_cwcSize = RTSTR_MAX)
     {
-        copyFrom(that);
+        copyFrom(that, a_cwcSize);
     }
 
     Utf8Str(const char *a_pszSrc, size_t a_cchSrc)
@@ -525,7 +533,7 @@ public:
      *                          specified by the format string.
      * @sa      RTCString::printfV
      */
-    Utf8Str(const char *a_pszFormat, va_list a_va)
+    Utf8Str(const char *a_pszFormat, va_list a_va) RT_IPRT_FORMAT_ATTR(1, 0)
         : RTCString(a_pszFormat, a_va)
     {
     }
@@ -556,8 +564,6 @@ public:
         return *this;
     }
 
-    bool operator<(const RTCString &that) const { return RTCString::operator<(that); }
-
     /**
      * Extended assignment method that returns a COM status code instead of an
      * exception on failure.
@@ -567,7 +573,7 @@ public:
      */
     HRESULT assignEx(Utf8Str const &a_rSrcStr)
     {
-        return copyFromExNComRC(a_rSrcStr.m_psz, a_rSrcStr.m_cch);
+        return copyFromExNComRC(a_rSrcStr.m_psz, 0, a_rSrcStr.m_cch);
     }
 
     /**
@@ -585,7 +591,7 @@ public:
         if (   a_offSrc + a_cchSrc > a_rSrcStr.m_cch
             || a_offSrc > a_rSrcStr.m_cch)
             return E_INVALIDARG;
-        return copyFromExNComRC(a_rSrcStr.m_psz, a_rSrcStr.m_cch);
+        return copyFromExNComRC(a_rSrcStr.m_psz, a_offSrc, a_cchSrc);
     }
 
     /**
@@ -597,7 +603,7 @@ public:
      */
     HRESULT assignEx(const char *a_pcszSrc)
     {
-        return copyFromExNComRC(a_pcszSrc, a_pcszSrc ? strlen(a_pcszSrc) : 0);
+        return copyFromExNComRC(a_pcszSrc, 0, a_pcszSrc ? strlen(a_pcszSrc) : 0);
     }
 
     /**
@@ -611,7 +617,7 @@ public:
      */
     HRESULT assignEx(const char *a_pcszSrc, size_t a_cchSrc)
     {
-        return copyFromExNComRC(a_pcszSrc, a_cchSrc);
+        return copyFromExNComRC(a_pcszSrc, 0, a_cchSrc);
     }
 
     RTMEMEF_NEW_AND_DELETE_OPERATORS();
@@ -697,10 +703,13 @@ public:
     Utf8Str& stripPath();
 
     /**
-     * Removes a trailing file name extension from the member string, if present.
-     * Calls RTPathStripExt() without having to mess with mutableRaw().
+     * Removes a trailing file name suffix from the member string, if present.
+     * Calls RTPathStripSuffix() without having to mess with mutableRaw().
      */
-    Utf8Str& stripExt();
+    Utf8Str& stripSuffix();
+
+    // Parse key=value pairs from string
+    size_t parseKeyValue(Utf8Str &key, Utf8Str &value, size_t pos = 0, const Utf8Str &pairSeparator = ",", const Utf8Str &keyValueSeparator = "=") const;
 
     /**
      *  Static immutable empty-string object. May be used for comparison purposes.
@@ -708,9 +717,9 @@ public:
     static const Utf8Str Empty;
 protected:
 
-    void copyFrom(CBSTR a_pbstr);
+    void copyFrom(CBSTR a_pbstr, size_t a_cwcMax = RTSTR_MAX);
     HRESULT copyFromEx(CBSTR a_pbstr);
-    HRESULT copyFromExNComRC(const char *a_pcszSrc, size_t a_cchSrc);
+    HRESULT copyFromExNComRC(const char *a_pcszSrc, size_t a_offSrc, size_t a_cchSrc);
 
     friend class Bstr; /* to access our raw_copy() */
 };
@@ -740,7 +749,7 @@ public:
      * @param   ...             Ellipsis containing the arguments specified by
      *                          the format string.
      */
-    explicit Utf8StrFmt(const char *a_pszFormat, ...)
+    explicit Utf8StrFmt(const char *a_pszFormat, ...) RT_IPRT_FORMAT_ATTR(1, 2)
     {
         va_list va;
         va_start(va, a_pszFormat);
@@ -771,7 +780,7 @@ public:
      * @param aFormat   printf-like format string (in UTF-8 encoding).
      * @param ...       List of the arguments for the format string.
      */
-    explicit BstrFmt(const char *aFormat, ...)
+    explicit BstrFmt(const char *aFormat, ...) RT_IPRT_FORMAT_ATTR(1, 2)
     {
         va_list args;
         va_start(args, aFormat);
@@ -796,7 +805,7 @@ public:
      * @param aFormat   printf-like format string (in UTF-8 encoding).
      * @param aArgs     List of arguments for the format string
      */
-    BstrFmtVA(const char *aFormat, va_list aArgs)
+    BstrFmtVA(const char *aFormat, va_list aArgs) RT_IPRT_FORMAT_ATTR(1, 0)
     {
         copyFrom(Utf8Str(aFormat, aArgs).c_str());
     }

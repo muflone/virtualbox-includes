@@ -1,10 +1,10 @@
-/* $Id: list.h 45520 2013-04-12 14:22:41Z vboxsync $ */
+/* $Id: list.h 56291 2015-06-09 14:12:00Z vboxsync $ */
 /** @file
  * MS COM / XPCOM Abstraction Layer - List classes declaration.
  */
 
 /*
- * Copyright (C) 2011-2013 Oracle Corporation
+ * Copyright (C) 2011-2015 Oracle Corporation
  *
  * This file is part of VirtualBox Open Source Edition (OSE), as
  * available from http://www.virtualbox.org. This file is free software;

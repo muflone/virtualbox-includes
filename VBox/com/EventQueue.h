@@ -1,10 +1,10 @@
-/* $Id: EventQueue.h 46649 2013-06-19 11:47:32Z vboxsync $ */
+/* $Id: EventQueue.h 56291 2015-06-09 14:12:00Z vboxsync $ */
 /** @file
  * Event queue class declaration.
  */
 
 /*
- * Copyright (C) 2013 Oracle Corporation
+ * Copyright (C) 2013-2015 Oracle Corporation
  *
  * This file is part of VirtualBox Open Source Edition (OSE), as
  * available from http://www.virtualbox.org. This file is free software;
@@ -103,6 +103,7 @@ public:
 
     BOOL postEvent(Event *event);
     int processEventQueue(RTMSINTERVAL cMsTimeout);
+    int processPendingEvents(size_t cNumEvents);
     int interruptEventQueueProcessing();
 
 private:
@@ -110,6 +111,10 @@ private:
     /** Critical section for serializing access to this
      *  event queue. */
     RTCRITSECT         mCritSect;
+    /** Number of concurrent users. At the moment we
+     *  only support one concurrent user at a time when
+        calling processEventQueue(). */
+    uint32_t           mUserCnt;
     /** Event semaphore for getting notified on new
      *  events being handled. */
     RTSEMEVENT         mSemEvent;

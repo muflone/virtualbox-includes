@@ -1,10 +1,10 @@
-/* $Id: dbg.h 46165 2013-05-19 19:07:50Z vboxsync $ */
+/* $Id: dbg.h 57004 2015-07-19 00:53:13Z vboxsync $ */
 /** @file
  * IPRT - Debugging Routines.
  */
 
 /*
- * Copyright (C) 2008-2012 Oracle Corporation
+ * Copyright (C) 2008-2015 Oracle Corporation
  *
  * This file is part of VirtualBox Open Source Edition (OSE), as
  * available from http://www.virtualbox.org. This file is free software;
@@ -106,7 +106,7 @@ typedef RTDBGSEGMENT const *PCRTDBGSEGMENT;
 
 
 /** Max length (including '\\0') of a symbol name. */
-#define RTDBG_SYMBOL_NAME_LENGTH    (384 - 8 - 8 - 8 - 4 - 4 - 8)
+#define RTDBG_SYMBOL_NAME_LENGTH    (512 - 8 - 8 - 8 - 4 - 4 - 8)
 
 /**
  * Debug symbol.
@@ -458,9 +458,34 @@ RTDECL(int) RTDbgCfgOpenDbg(RTDBGCFG hDbgCfg, const char *pszFilename, uint32_t 
                             PFNDBGCFGOPEN pfnCallback, void *pvUser1, void *pvUser2);
 RTDECL(int) RTDbgCfgOpenDwo(RTDBGCFG hDbgCfg, const char *pszFilename, uint32_t uCrc32,
                             PFNDBGCFGOPEN pfnCallback, void *pvUser1, void *pvUser2);
-
 RTDECL(int) RTDbgCfgOpenDsymBundle(RTDBGCFG hDbgCfg, const char *pszFilename, PCRTUUID pUuid,
                                    PFNDBGCFGOPEN pfnCallback, void *pvUser1, void *pvUser2);
+RTDECL(int) RTDbgCfgOpenMachOImage(RTDBGCFG hDbgCfg, const char *pszFilename, PCRTUUID pUuid,
+                                   PFNDBGCFGOPEN pfnCallback, void *pvUser1, void *pvUser2);
+
+
+/** @name Static symbol cache configuration
+ * @{ */
+/** The cache subdirectory containing the UUID mappings for .dSYM bundles.
+ * The UUID mappings implemented by IPRT are splitting the image/dsym UUID up
+ * into five 4 digit parts that maps to directories and one twelve digit part
+ * that maps to a symbolic link.  The symlink points to the file in the
+ * Contents/Resources/DWARF/ directory of the .dSYM bundle for a .dSYM map, and
+ * to the image file (Contents/MacOS/bundlename for bundles) for image map.
+ *
+ * According to available documentation, both lldb and gdb are able to use these
+ * UUID maps to find debug info while debugging.  See:
+ *      http://lldb.llvm.org/symbols.html
+ */
+#define RTDBG_CACHE_UUID_MAP_DIR_DSYMS   "dsym-uuids"
+/** The cache subdirectory containing the UUID mappings for image files. */
+#define RTDBG_CACHE_UUID_MAP_DIR_IMAGES  "image-uuids"
+/** Suffix used for the cached .dSYM debug files.
+ * In .dSYM bundles only the .dSYM/Contents/Resources/DWARF/debug-file is
+ * copied into the cache, and in order to not clash with the stripped/rich image
+ * file, the cache tool slaps this suffix onto the name. */
+#define RTDBG_CACHE_DSYM_FILE_SUFFIX     ".dwarf"
+/** @} */
 
 
 /** @} */
@@ -493,7 +518,8 @@ RTDECL(int) RTDbgAsCreate(PRTDBGAS phDbgAs, RTUINTPTR FirstAddr, RTUINTPTR LastA
  * @param   pszNameFmt      The name format of the address space.
  * @param   va              Format arguments.
  */
-RTDECL(int) RTDbgAsCreateV(PRTDBGAS phDbgAs, RTUINTPTR FirstAddr, RTUINTPTR LastAddr, const char *pszNameFmt, va_list va);
+RTDECL(int) RTDbgAsCreateV(PRTDBGAS phDbgAs, RTUINTPTR FirstAddr, RTUINTPTR LastAddr,
+                           const char *pszNameFmt, va_list va) RT_IPRT_FORMAT_ATTR(4, 0);
 
 /**
  * Variant of RTDbgAsCreate that takes a name format string.
@@ -506,7 +532,8 @@ RTDECL(int) RTDbgAsCreateV(PRTDBGAS phDbgAs, RTUINTPTR FirstAddr, RTUINTPTR Last
  * @param   pszNameFmt      The name format of the address space.
  * @param   ...             Format arguments.
  */
-RTDECL(int) RTDbgAsCreateF(PRTDBGAS phDbgAs, RTUINTPTR FirstAddr, RTUINTPTR LastAddr, const char *pszNameFmt, ...);
+RTDECL(int) RTDbgAsCreateF(PRTDBGAS phDbgAs, RTUINTPTR FirstAddr, RTUINTPTR LastAddr,
+                           const char *pszNameFmt, ...) RT_IPRT_FORMAT_ATTR(4, 5);
 
 /**
  * Retains a reference to the address space.
@@ -940,6 +967,16 @@ RTDECL(int)         RTDbgModCreateFromPdb(PRTDBGMOD phDbgMod, const char *pszFil
                                           PCRTUUID pUuid, uint32_t Age, RTDBGCFG hDbgCfg);
 RTDECL(int)         RTDbgModCreateFromDwo(PRTDBGMOD phDbgMod, const char *pszFilename, const char *pszName, uint32_t cbImage,
                                           uint32_t uCrc32, RTDBGCFG hDbgCfg);
+RTDECL(int)         RTDbgModCreateFromMachOImage(PRTDBGMOD phDbgMod, const char *pszFilename, const char *pszName,
+                                                 RTLDRARCH enmArch, uint32_t cbImage, uint32_t cSegs, PCRTDBGSEGMENT paSegs,
+                                                 PCRTUUID pUuid, RTDBGCFG hDbgCfg, uint32_t fFlags);
+
+/** @name Flags for RTDbgModCreate and friends.
+ * @{ */
+/** Overrides the hDbgCfg settings and forces an image and/or symbol file
+ *  search.  RTDbgModCreate will quietly ignore this flag. */
+#define RTDBGMOD_F_NOT_DEFERRED     RT_BIT_32(0)
+/** @} */
 
 
 /**

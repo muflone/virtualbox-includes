@@ -1,4 +1,4 @@
-/* $Id: vscsi.h 44528 2013-02-04 14:27:54Z vboxsync $ */
+/* $Id: vscsi.h 56439 2015-06-15 17:14:02Z vboxsync $ */
 /** @file
  * VBox storage drivers: Virtual SCSI driver
  */
@@ -86,6 +86,8 @@ typedef enum VSCSILUNTYPE
     VSCSILUNTYPE_SBC,
     /** CD/DVD drive (MMC) */
     VSCSILUNTYPE_MMC,
+    /** Tape drive (SSC) */
+    VSCSILUNTYPE_SSC,
     /** Last value to indicate an invalid device */
     VSCSILUNTYPE_LAST,
     /** 32bit hack */
@@ -119,6 +121,20 @@ typedef struct VSCSILUNIOCALLBACKS
     DECLR3CALLBACKMEMBER(int, pfnVScsiLunMediumGetSize, (VSCSILUN hVScsiLun,
                                                          void *pvScsiLunUser,
                                                          uint64_t *pcbSize));
+
+    /**
+     * Retrieve the sector size of the underlying medium.
+     *
+     * @returns VBox status status code.
+     * @param   hVScsiLun        Virtual SCSI LUN handle.
+     * @param   pvScsiLunUser    Opaque user data which may
+     *                           be used to identify the medium.
+     * @param   pcbSectorSize    Where to store the sector size of the
+     *                           medium.
+     */
+    DECLR3CALLBACKMEMBER(int, pfnVScsiLunMediumGetSectorSize, (VSCSILUN hVScsiLun,
+                                                              void *pvScsiLunUser,
+                                                              uint32_t *pcbSectorSize));
 
     /**
      * Set the lock state of the underlying medium.
@@ -217,15 +233,15 @@ VBOXDDU_DECL(int) VSCSIDeviceLunDetach(VSCSIDEVICE hVScsiDevice, uint32_t iLun,
                                        PVSCSILUN phVScsiLun);
 
 /**
- * Return the SCSI LUN handle.
+ * Query the SCSI LUN type.
  *
  * @returns VBox status code.
  * @param   hVScsiDevice    The SCSI device handle.
  * @param   iLun            The LUN number to get.
- * @param   phVScsiLun      Where to store the LUN handle.
+ * @param   pEnmLunType     Where to store the LUN type.
  */
-VBOXDDU_DECL(int) VSCSIDeviceLunGet(VSCSIDEVICE hVScsiDevice, uint32_t iLun,
-                                    PVSCSILUN phVScsiLun);
+VBOXDDU_DECL(int) VSCSIDeviceLunQueryType(VSCSIDEVICE hVScsiDevice, uint32_t iLun,
+                                          PVSCSILUNTYPE pEnmLunType);
 
 /**
  * Enqueue a request to the SCSI device.

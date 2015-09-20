@@ -1,10 +1,10 @@
-/* $Id: gvm.h 44528 2013-02-04 14:27:54Z vboxsync $ */
+/* $Id: gvm.h 53615 2014-12-31 01:53:47Z vboxsync $ */
 /** @file
  * GVM - The Global VM Data.
  */
 
 /*
- * Copyright (C) 2007-2011 Oracle Corporation
+ * Copyright (C) 2007-2015 Oracle Corporation
  *
  * This file is part of VirtualBox Open Source Edition (OSE), as
  * available from http://www.virtualbox.org. This file is free software;
@@ -32,7 +32,7 @@
 #include <iprt/thread.h>
 
 
-/** @defgroup grp_gvm   GVMCPU - The Global VMCPU Data
+/** @defgroup grp_gvmcpu GVMCPU - The Global VMCPU Data
  * @{
  */
 
